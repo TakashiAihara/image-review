@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, realpath, stat } from "node:fs/promises";
+import { join, sep } from "node:path";
 import { Command } from "commander";
 import {
   type Manifest,
@@ -39,21 +39,35 @@ async function loadLocal(dir: string): Promise<Manifest> {
   const errs = validateManifest(m);
   if (errs.length) die("invalid manifest", errs);
   const missing = [];
+  const outside = [];
+  // Resolve symlinks: the path text staying inside <dir> does not stop a link from pointing at ~/.ssh.
+  const root = (await realpath(dir)) + sep;
   for (const p of imagePaths(m as Manifest)) {
-    const ok = await stat(join(dir, p)).then(
-      (s) => s.isFile(),
-      () => false,
-    );
+    const real = await realpath(join(dir, p)).catch(() => undefined);
+    const ok =
+      real !== undefined &&
+      (await stat(real).then(
+        (s) => s.isFile(),
+        () => false,
+      ));
     if (!ok) missing.push(p);
+    else if (!real.startsWith(root)) outside.push(`${p} -> ${real}`);
   }
   if (missing.length) die("images named in the manifest are missing", missing);
+  if (outside.length) die("images resolve outside the manifest directory (symlinks)", outside);
   return m as Manifest;
 }
 
 async function api(method: string, path: string, body?: BodyInit, type?: string): Promise<unknown> {
   const base = env("IMAGE_REVIEW_URL").replace(/\/+$/, "");
   // The bearer token would cross the network in cleartext; plain http is allowed only to this machine or when opted in.
-  const u = new URL(base);
+  let u: URL;
+  try {
+    u = new URL(base);
+  } catch {
+    console.error(`IMAGE_REVIEW_URL is not a valid URL: ${base}`);
+    process.exit(2);
+  }
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
   if (u.protocol === "http:" && !loopback && process.env.IMAGE_REVIEW_ALLOW_HTTP !== "1") {
     console.error(

@@ -49,9 +49,17 @@ async function exists(p: string): Promise<boolean> {
   );
 }
 
+// A cross-site form can only send text/plain, urlencoded or multipart; requiring JSON keeps it from posting through the proxy's session.
+function isJson(req: Request): boolean {
+  return (
+    (req.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ===
+    "application/json"
+  );
+}
+
 async function writeAtomic(path: string, data: string | Uint8Array): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
+  const tmp = `${path}.tmp-${crypto.randomUUID()}`;
   await writeFile(tmp, data);
   await rename(tmp, path);
 }
@@ -179,6 +187,7 @@ export function createHandler(dataDir: string, token: string) {
     }
 
     if (sub === "manifest" && req.method === "PUT") {
+      if (!isJson(req)) return json({ error: "Content-Type must be application/json" }, 415);
       let m: unknown;
       try {
         m = await req.json();
@@ -204,6 +213,7 @@ export function createHandler(dataDir: string, token: string) {
     if (sub === "verdicts" && req.method === "POST") {
       const m = await loadManifest(name);
       if (!m) return json({ error: "no such experiment" }, 404);
+      if (!isJson(req)) return json({ error: "Content-Type must be application/json" }, 415);
       let body: { item?: unknown; answers?: unknown };
       try {
         body = (await req.json()) as typeof body;
@@ -218,8 +228,7 @@ export function createHandler(dataDir: string, token: string) {
         item: body.item,
         answers: body.answers as Verdict["answers"],
         // Informational only: set by the auth proxy in front; the token is what authorizes.
-        by:
-          req.headers.get("x-forwarded-email") ?? req.headers.get("x-auth-request-email") ?? "api",
+        by: req.headers.get("x-forwarded-email") ?? "api",
         at: new Date().toISOString(),
       };
       // After a torn last line, start on a fresh line so the new verdict is not glued onto it.

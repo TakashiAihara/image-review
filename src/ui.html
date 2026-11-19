@@ -264,7 +264,7 @@
           (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
         );
       const exp = new URLSearchParams(location.search).get("exp");
-      // Every request asks for JSON so an auth proxy in front answers 401 instead of redirecting to its login page.
+      // API requests ask for JSON so an auth proxy in front answers 401 instead of redirecting to its login page.
       const get = (p) =>
         fetch(p, { headers: { Accept: "application/json" } }).then((r) => {
           if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`);
@@ -350,7 +350,8 @@
           .forEach((t) => (t.value = cur[t.dataset.text] ?? ""));
         document
           .querySelectorAll("[data-numin]")
-          .forEach((t) => (t.value = cur[t.dataset.numin] ?? ""));
+          // Keep a half-typed number on screen so the save guard still sees and refuses it.
+          .forEach((t) => !t.validity.badInput && (t.value = cur[t.dataset.numin] ?? ""));
         const rowQ = M.questions.find((q) => q.type === "choice" && q.options === "rows");
         document
           .querySelectorAll("tr[data-row]")
@@ -411,7 +412,12 @@
       let saving = false;
       async function save() {
         // One save at a time; a second Enter while the first is in flight would post again and skip an item.
-        if (saving) return;
+        if (saving) {
+          $("#st").textContent =
+            "still saving the previous answer; press Enter again when it is done";
+          $("#st").className = "st err";
+          return;
+        }
         saving = true;
         try {
           await saveOnce();
@@ -453,8 +459,12 @@
           return;
         }
         latest[it.id] = await res.json();
-        // Advance only if the reviewer is still on the item that was saved.
-        if (M.items[i] === it && i < M.items.length - 1) i++;
+        // If the reviewer moved on while this was in flight, leave their current answers alone.
+        if (M.items[i] !== it) {
+          $("#done").textContent = `${Object.keys(latest).length} judged`;
+          return;
+        }
+        if (i < M.items.length - 1) i++;
         showItem();
       }
 

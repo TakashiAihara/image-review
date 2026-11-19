@@ -68,7 +68,7 @@ See `examples/demo/manifest.json` for a complete one.
 | `items[].cells[row][col]` | Image path; a missing cell renders blank                      |
 | `items[].metrics[row]`    | Optional `{ name: value }` shown next to the row label        |
 
-Image paths are relative to the directory holding `manifest.json`, must stay inside it, and end in `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` or `.avif`.
+Image paths are relative to the directory holding `manifest.json`, must stay inside it (the CLI also refuses symlinks that point outside), and end in `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` or `.avif`.
 
 Every question needs a unique `key` and a `label`. Types:
 
@@ -92,7 +92,7 @@ Verdicts are append-only, so earlier answers are never lost.
 
 ## API
 
-All endpoints require the token.
+All endpoints require the token. Request bodies sent to `POST .../verdicts` and `PUT .../manifest` must have `Content-Type: application/json` (a cross-site form cannot send that, so a logged-in reviewer's session cannot be used to forge verdicts).
 
 | Method and path                           | Purpose                                                       |
 | ----------------------------------------- | ------------------------------------------------------------- |

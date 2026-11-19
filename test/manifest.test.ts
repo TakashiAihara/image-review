@@ -43,6 +43,20 @@ test("names each problem in an invalid manifest", () => {
   ]);
 });
 
+test("__proto__ is refused as a key or id", () => {
+  const m = {
+    ...base,
+    rows: [{ key: "__proto__", label: "P" }],
+    questions: [{ key: "__proto__", label: "Q", type: "text" }],
+    items: [{ id: "__proto__", cells: {} }],
+  };
+  expect(validateManifest(m)).toEqual([
+    "rows[0]: needs string key and label",
+    "questions[0]: needs string key and label",
+    "items[0]: needs string id",
+  ]);
+});
+
 test("null entries in the axes are reported, not thrown", () => {
   expect(validateManifest({ ...base, rows: [null], cols: [null] })).toEqual([
     "rows[0]: needs string key and label",

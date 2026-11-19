@@ -20,7 +20,12 @@ const req = (method: string, path: string, body?: BodyInit, headers: Record<stri
     new Request(`http://local${path}`, {
       method,
       body,
-      headers: { Authorization: `Bearer ${TOKEN}`, ...headers },
+      // String bodies here are JSON; file uploads pass raw bytes. An explicit header in `headers` wins.
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        ...(typeof body === "string" ? { "Content-Type": "application/json" } : {}),
+        ...headers,
+      },
     }),
   );
 
@@ -147,6 +152,58 @@ describe("upload", () => {
         (x) => x.name,
       ),
     ).toEqual(["e1"]);
+  });
+});
+
+describe("forgery", () => {
+  test("refuses JSON bodies that do not say application/json, as a cross-site form would send", async () => {
+    await pushAll();
+    for (const type of [
+      "text/plain",
+      "application/x-www-form-urlencoded",
+      "multipart/form-data; boundary=x",
+    ]) {
+      const v = await req(
+        "POST",
+        "/api/experiments/e1/verdicts",
+        JSON.stringify({ item: "x1", answers: {} }),
+        { "Content-Type": type },
+      );
+      expect(v.status).toBe(415);
+      const m = await req("PUT", "/api/experiments/e1/manifest", JSON.stringify(manifest), {
+        "Content-Type": type,
+      });
+      expect(m.status).toBe(415);
+    }
+    expect(await (await req("GET", "/api/experiments/e1/verdicts")).json()).toEqual([]);
+    const ok = await req(
+      "POST",
+      "/api/experiments/e1/verdicts",
+      JSON.stringify({ item: "x1", answers: {} }),
+      {
+        "Content-Type": "application/json; charset=utf-8",
+      },
+    );
+    expect(ok.status).toBe(200);
+  });
+
+  test("records only X-Forwarded-Email as the reviewer", async () => {
+    await pushAll();
+    const v = await req(
+      "POST",
+      "/api/experiments/e1/verdicts",
+      JSON.stringify({ item: "x1", answers: {} }),
+      {
+        "X-Auth-Request-Email": "other@example.com",
+      },
+    );
+    expect(((await v.json()) as { by: string }).by).toBe("api");
+  });
+
+  test("does not serve a file that is not an image even if it exists on disk", async () => {
+    await pushAll();
+    await writeFile(join(dir, "e1", "files", "x1", "page.html"), "<script>");
+    expect((await req("GET", "/files/e1/x1/page.html")).status).toBe(404);
   });
 });
 

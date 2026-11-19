@@ -68,6 +68,11 @@ export function isSafeRelPath(p: unknown): p is string {
   return p.split("/").every((seg) => seg !== "" && seg !== "." && seg !== "..");
 }
 
+// Keys and ids become property names on plain objects (verdict maps, answers), where "__proto__" would set the prototype instead.
+function isKey(v: unknown): v is string {
+  return typeof v === "string" && v !== "" && v !== "__proto__";
+}
+
 function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -80,7 +85,7 @@ function axes(v: unknown, where: string, errs: string[]): Axis[] {
   const seen = new Set<string>();
   const ok: Axis[] = [];
   for (const [i, a] of v.entries()) {
-    if (!isObj(a) || typeof a.key !== "string" || a.key === "" || typeof a.label !== "string") {
+    if (!isObj(a) || !isKey(a.key) || typeof a.label !== "string") {
       errs.push(`${where}[${i}]: needs string key and label`);
     } else if (seen.has(a.key)) {
       errs.push(`${where}[${i}]: duplicate key "${a.key}"`);
@@ -108,7 +113,7 @@ export function validateManifest(m: unknown): string[] {
     const seen = new Set<string>();
     for (const [i, q] of m.questions.entries()) {
       const at = `questions[${i}]`;
-      if (!isObj(q) || typeof q.key !== "string" || q.key === "" || typeof q.label !== "string") {
+      if (!isObj(q) || !isKey(q.key) || typeof q.label !== "string") {
         errs.push(`${at}: needs string key and label`);
         continue;
       }
@@ -133,7 +138,7 @@ export function validateManifest(m: unknown): string[] {
     const seen = new Set<string>();
     for (const [i, it] of m.items.entries()) {
       const at = `items[${i}]`;
-      if (!isObj(it) || typeof it.id !== "string" || it.id === "") {
+      if (!isObj(it) || !isKey(it.id)) {
         errs.push(`${at}: needs string id`);
         continue;
       }
