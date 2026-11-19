@@ -50,7 +50,11 @@ export const IMAGE_TYPES: Record<string, string> = {
 
 /** Content type for an image path, or undefined when the extension is not an allowed image. */
 export function imageType(path: string): string | undefined {
-  return IMAGE_TYPES[path.split(".").pop()?.toLowerCase() ?? ""];
+  const name = path.split("/").pop() ?? "";
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return undefined;
+  const ext = name.slice(dot + 1).toLowerCase();
+  return Object.hasOwn(IMAGE_TYPES, ext) ? IMAGE_TYPES[ext] : undefined;
 }
 
 export function isImagePath(p: unknown): p is string {

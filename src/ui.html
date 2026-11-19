@@ -283,7 +283,7 @@
         ["#prev", "#next", "#nextOpen"].forEach((s) => ($(s).hidden = true));
         const xs = await get("api/experiments");
         $("#main").innerHTML = xs.length
-          ? `<ul class="exps">${xs.map((x) => `<li><a href="?exp=${encodeURIComponent(x.name)}">${esc(x.title)}</a> <span class="mut">${esc(x.name)} · ${x.judged}/${x.items} judged</span></li>`).join("")}</ul>`
+          ? `<ul class="exps">${xs.map((x) => (x.error ? `<li>${esc(x.name)} <span class="st err">cannot be read: ${esc(x.error)}</span></li>` : `<li><a href="?exp=${encodeURIComponent(x.name)}">${esc(x.title)}</a> <span class="mut">${esc(x.name)} · ${x.judged}/${x.items} judged</span></li>`)).join("")}</ul>`
           : `<p class="mut">No experiments yet. Upload one with <code>image-review push &lt;dir&gt; --name &lt;name&gt;</code>.</p>`;
       }
 
@@ -421,6 +421,16 @@
       }
       async function saveOnce() {
         const it = M.items[i];
+        // A half-typed number reads as "" in the field; refuse it rather than saving it as unanswered.
+        const bad = [...document.querySelectorAll("[data-numin]")].find((t) => !t.checkValidity());
+        if (bad) {
+          $("#st").textContent =
+            `not saved: ${bad.dataset.numin} must be a whole number in ${bad.min}..${bad.max}`;
+          $("#st").className = "st err";
+          return;
+        }
+        // Leave the text or number field so digit and arrow keys drive the next item.
+        if (document.activeElement?.matches("input, textarea")) document.activeElement.blur();
         const answers = {};
         for (const q of M.questions) answers[q.key] = cur[q.key] ?? null;
         let res;

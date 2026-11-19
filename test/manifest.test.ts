@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { isSafeRelPath, validateManifest } from "../src/manifest.ts";
+import { isImagePath, isSafeRelPath, validateManifest } from "../src/manifest.ts";
 
 const base = {
   title: "t",
@@ -50,6 +50,21 @@ test("null entries in the axes are reported, not thrown", () => {
     'items[0].cells: unknown row "a"',
     'items[0].cells.a: unknown col "c"',
   ]);
+});
+
+test("image paths need a real image extension", () => {
+  for (const p of ["a.png", "x/y.JPG", "d.v1/z.webp"]) expect(isImagePath(p)).toBe(true);
+  for (const p of [
+    "png",
+    "x/jpg",
+    "a.__proto__",
+    "a.toString",
+    ".png",
+    "a.svg",
+    "dir.png/file",
+    "dir/.png",
+  ])
+    expect(isImagePath(p)).toBe(false);
 });
 
 test("safe paths stay inside the experiment directory", () => {
