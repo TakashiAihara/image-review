@@ -52,6 +52,15 @@ async function loadLocal(dir: string): Promise<Manifest> {
 
 async function api(method: string, path: string, body?: BodyInit, type?: string): Promise<unknown> {
   const base = env("IMAGE_REVIEW_URL").replace(/\/+$/, "");
+  // The bearer token would cross the network in cleartext; plain http is allowed only to this machine or when opted in.
+  const u = new URL(base);
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
+  if (u.protocol === "http:" && !loopback && process.env.IMAGE_REVIEW_ALLOW_HTTP !== "1") {
+    console.error(
+      `refusing to send the token over plain http to ${u.host}; use https, or set IMAGE_REVIEW_ALLOW_HTTP=1`,
+    );
+    process.exit(2);
+  }
   const headers: Record<string, string> = {
     Authorization: `Bearer ${env("IMAGE_REVIEW_TOKEN")}`,
     Accept: "application/json",

@@ -222,7 +222,15 @@ export function createHandler(dataDir: string, token: string) {
           req.headers.get("x-forwarded-email") ?? req.headers.get("x-auth-request-email") ?? "api",
         at: new Date().toISOString(),
       };
-      await appendFile(join(expDir(name), "verdicts.jsonl"), JSON.stringify(v) + "\n");
+      // After a torn last line, start on a fresh line so the new verdict is not glued onto it.
+      const vf = join(expDir(name), "verdicts.jsonl");
+      const size = (await stat(vf).catch(() => undefined))?.size ?? 0;
+      const fresh =
+        size === 0 ||
+        (await Bun.file(vf)
+          .slice(size - 1)
+          .text()) === "\n";
+      await appendFile(vf, (fresh ? "" : "\n") + JSON.stringify(v) + "\n");
       return json(v);
     }
 

@@ -74,14 +74,18 @@ function axes(v: unknown, where: string, errs: string[]): Axis[] {
     return [];
   }
   const seen = new Set<string>();
+  const ok: Axis[] = [];
   for (const [i, a] of v.entries()) {
     if (!isObj(a) || typeof a.key !== "string" || a.key === "" || typeof a.label !== "string") {
       errs.push(`${where}[${i}]: needs string key and label`);
     } else if (seen.has(a.key)) {
       errs.push(`${where}[${i}]: duplicate key "${a.key}"`);
-    } else seen.add(a.key);
+    } else {
+      seen.add(a.key);
+      ok.push(a as Axis);
+    }
   }
-  return v as Axis[];
+  return ok;
 }
 
 /** Returns the list of problems; an empty list means `m` is a valid Manifest. */

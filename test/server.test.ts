@@ -178,6 +178,20 @@ describe("resilience", () => {
     );
   });
 
+  test("a save after a torn last line starts on a fresh line", async () => {
+    await pushAll();
+    await writeFile(join(dir, "e1", "verdicts.jsonl"), '{"item":"x2","ans');
+    const res = await req(
+      "POST",
+      "/api/experiments/e1/verdicts",
+      JSON.stringify({ item: "x1", answers: { closest: "a" } }),
+    );
+    expect(res.status).toBe(200);
+    const lines = (await readFile(join(dir, "e1", "verdicts.jsonl"), "utf8")).split("\n");
+    expect(lines[0]).toBe('{"item":"x2","ans');
+    expect(JSON.parse(lines[1] ?? "").item).toBe("x1");
+  });
+
   test("a malformed percent-escape is a 400, not a crash", async () => {
     expect((await req("GET", "/files/e1/%ZZ.png")).status).toBe(400);
   });

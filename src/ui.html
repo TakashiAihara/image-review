@@ -408,7 +408,18 @@
         window.scrollTo(0, 0);
       }
 
+      let saving = false;
       async function save() {
+        // One save at a time; a second Enter while the first is in flight would post again and skip an item.
+        if (saving) return;
+        saving = true;
+        try {
+          await saveOnce();
+        } finally {
+          saving = false;
+        }
+      }
+      async function saveOnce() {
         const it = M.items[i];
         const answers = {};
         for (const q of M.questions) answers[q.key] = cur[q.key] ?? null;
@@ -432,7 +443,8 @@
           return;
         }
         latest[it.id] = await res.json();
-        if (i < M.items.length - 1) i++;
+        // Advance only if the reviewer is still on the item that was saved.
+        if (M.items[i] === it && i < M.items.length - 1) i++;
         showItem();
       }
 
@@ -500,6 +512,7 @@
           return;
         }
         if (!M) return;
+        if (e.repeat && e.key === "Enter") return;
         if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();

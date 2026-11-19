@@ -43,6 +43,15 @@ test("names each problem in an invalid manifest", () => {
   ]);
 });
 
+test("null entries in the axes are reported, not thrown", () => {
+  expect(validateManifest({ ...base, rows: [null], cols: [null] })).toEqual([
+    "rows[0]: needs string key and label",
+    "cols[0]: needs string key and label",
+    'items[0].cells: unknown row "a"',
+    'items[0].cells.a: unknown col "c"',
+  ]);
+});
+
 test("safe paths stay inside the experiment directory", () => {
   for (const p of ["a.png", "x/y/z.webp", "seed-42_v1.jpg"]) expect(isSafeRelPath(p)).toBe(true);
   for (const p of [
