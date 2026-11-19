@@ -11,7 +11,7 @@ import {
 } from "./manifest.ts";
 import { serve } from "./server.ts";
 
-// Exit codes: 0 ok, 1 the operation failed (invalid manifest, server error), 2 missing configuration.
+// Exit codes: 0 ok, 1 the operation failed (invalid manifest, server error), 2 configuration problem.
 
 function env(name: string): string {
   const v = process.env[name];
@@ -29,7 +29,8 @@ function die(msg: string, details?: unknown): never {
 }
 
 /** Validates <dir>/manifest.json and that every image it names exists under <dir>. */
-async function loadLocal(dir: string): Promise<Manifest> {
+/** The manifest, plus each image path mapped to its resolved real path (upload that, so a link swapped after the check is not followed). */
+async function loadLocal(dir: string): Promise<{ m: Manifest; real: Map<string, string> }> {
   let m: unknown;
   try {
     m = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8"));
@@ -40,6 +41,7 @@ async function loadLocal(dir: string): Promise<Manifest> {
   if (errs.length) die("invalid manifest", errs);
   const missing = [];
   const outside = [];
+  const resolved = new Map<string, string>();
   // Resolve symlinks: the path text staying inside <dir> does not stop a link from pointing at ~/.ssh.
   const root = (await realpath(dir)) + sep;
   for (const p of imagePaths(m as Manifest)) {
@@ -55,10 +57,11 @@ async function loadLocal(dir: string): Promise<Manifest> {
         () => false,
       ));
     if (!ok) missing.push(p);
+    else resolved.set(p, real);
   }
   if (missing.length) die("images named in the manifest are missing", missing);
   if (outside.length) die("images resolve outside the manifest directory (symlinks)", outside);
-  return m as Manifest;
+  return { m: m as Manifest, real: resolved };
 }
 
 async function api(method: string, path: string, body?: BodyInit, type?: string): Promise<unknown> {
@@ -125,7 +128,7 @@ program
   .command("check <dir>")
   .description("Validate <dir>/manifest.json and the images it names, without uploading")
   .action(async (dir: string) => {
-    const m = await loadLocal(dir);
+    const { m } = await loadLocal(dir);
     console.log(`ok: ${m.items.length} items, ${imagePaths(m).length} images`);
   });
 
@@ -140,10 +143,14 @@ program
   )
   .action(async (dir: string, o: { name: string }) => {
     if (!isExperimentName(o.name)) die(`invalid experiment name: ${o.name}`);
-    const m = await loadLocal(dir);
+    const { m, real } = await loadLocal(dir);
     const paths = imagePaths(m);
     for (const [i, p] of paths.entries()) {
-      await api("PUT", `/api/experiments/${o.name}/files/${enc(p)}`, Bun.file(join(dir, p)));
+      await api(
+        "PUT",
+        `/api/experiments/${o.name}/files/${enc(p)}`,
+        Bun.file(real.get(p) ?? join(dir, p)),
+      );
       if ((i + 1) % 50 === 0) console.error(`uploaded ${i + 1}/${paths.length}`);
     }
     // The manifest goes last: the server rejects it until every image it names is present.

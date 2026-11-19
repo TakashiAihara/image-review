@@ -428,6 +428,7 @@
       }
       async function saveOnce() {
         const it = M.items[i];
+        const movesAtStart = moves;
         // A half-typed number reads as "" in the field; refuse it rather than saving it as unanswered.
         const bad = [...document.querySelectorAll("[data-numin]")].find((t) => !t.checkValidity());
         if (bad) {
@@ -461,7 +462,7 @@
         }
         latest[it.id] = await res.json();
         // If the reviewer moved on while this was in flight, leave their current answers alone.
-        if (M.items[i] !== it) {
+        if (moves !== movesAtStart) {
           $("#done").textContent = `${Object.keys(latest).length} judged`;
           $("#st").textContent = `saved ${it.id}`;
           $("#st").className = "st ok";
@@ -471,8 +472,11 @@
         showItem();
       }
 
+      // Bumped on every move, so a late save can tell "still here" from "left and came back".
+      let moves = 0;
       function go(n) {
         if (n >= 0 && n < M.items.length) {
+          moves++;
           i = n;
           showItem();
         }

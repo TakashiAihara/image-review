@@ -50,7 +50,7 @@ dist/image-review verdicts demo --all    # every save, in order
 
 The CLI refuses to send the token over plain `http://` to anything but this machine. Use `https://`, or set `IMAGE_REVIEW_ALLOW_HTTP=1` when the network between the CLI and the server is trusted (the server itself does not terminate TLS).
 
-Exit codes: 0 ok, 1 the operation failed (invalid manifest, missing images, server error), 2 configuration problem (`IMAGE_REVIEW_URL` / `IMAGE_REVIEW_TOKEN` not set, or plain http to another host without `IMAGE_REVIEW_ALLOW_HTTP=1`).
+Exit codes: 0 ok, 1 the operation failed (invalid manifest, missing images, server error), 2 configuration problem (`IMAGE_REVIEW_URL` / `IMAGE_REVIEW_TOKEN` not set, `IMAGE_REVIEW_URL` not a valid URL, or plain http to another host without `IMAGE_REVIEW_ALLOW_HTTP=1`).
 
 ## Manifest
 
