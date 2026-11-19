@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>image-review</title>
+    <style>
+      :root {
+        --bg: #111;
+        --fg: #eee;
+        --mut: #999;
+        --acc: #4da3ff;
+        --ok: #3ecf8e;
+        --bad: #ff6b6b;
+        --panel: #1c1c1c;
+        --line: #333;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+      }
+      a {
+        color: var(--acc);
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--panel);
+        padding: 8px 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+      }
+      header .title {
+        font-weight: 600;
+      }
+      .mut {
+        color: var(--mut);
+      }
+      button {
+        background: #2a2a2a;
+        color: var(--fg);
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font: inherit;
+      }
+      button:hover {
+        border-color: var(--acc);
+      }
+      button.on {
+        background: var(--acc);
+        color: #000;
+        border-color: var(--acc);
+      }
+      main {
+        padding: 8px 16px 16px;
+      }
+      .guide {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        white-space: pre-wrap;
+      }
+      .layout {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .ref {
+        position: sticky;
+        top: 56px;
+        flex: 0 1 auto;
+      }
+      .ref img {
+        height: calc(var(--cell) * 2);
+        max-width: 30vw;
+        object-fit: contain;
+        display: block;
+        border: 2px solid var(--acc);
+        border-radius: 4px;
+        cursor: zoom-in;
+      }
+      .ref .cap {
+        color: var(--acc);
+        font-weight: 600;
+      }
+      table.grid {
+        border-collapse: collapse;
+      }
+      .grid th {
+        font-weight: 600;
+        text-align: left;
+        padding: 2px 4px;
+        color: var(--mut);
+      }
+      .grid th.row {
+        width: 9em;
+        vertical-align: top;
+        color: var(--fg);
+      }
+      .grid th.row .metric {
+        display: block;
+        font-weight: 400;
+        color: var(--mut);
+        font-size: 12px;
+      }
+      .grid td {
+        padding: 2px;
+      }
+      .grid td img {
+        height: var(--cell);
+        max-width: 100%;
+        object-fit: contain;
+        display: block;
+        border-radius: 3px;
+        cursor: zoom-in;
+      }
+      .grid td .blank {
+        height: var(--cell);
+        aspect-ratio: 1;
+        background: #1a1a1a;
+        border-radius: 3px;
+      }
+      .grid tr.picked th.row {
+        color: var(--ok);
+      }
+      .grid tr.picked td img {
+        outline: 2px solid var(--ok);
+      }
+      footer {
+        position: sticky;
+        bottom: 0;
+        background: var(--panel);
+        border-top: 1px solid var(--line);
+        padding: 8px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .q {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .q .label {
+        min-width: 10em;
+      }
+      textarea {
+        flex: 1;
+        min-width: 240px;
+        min-height: 2.2em;
+        background: #222;
+        color: var(--fg);
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font: inherit;
+      }
+      .st.ok {
+        color: var(--ok);
+      }
+      .st.err {
+        color: var(--bad);
+      }
+      kbd {
+        background: #333;
+        border-radius: 4px;
+        padding: 0 4px;
+        font-size: 12px;
+      }
+      #zoom {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        background: #000;
+        display: none;
+        flex-direction: column;
+      }
+      #zoom.open {
+        display: flex;
+      }
+      #zoom .bar {
+        padding: 8px 16px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      #zoom .panes {
+        flex: 1;
+        display: flex;
+        gap: 8px;
+        padding: 0 8px 8px;
+        min-height: 0;
+      }
+      #zoom .pane {
+        flex: 1;
+        overflow: auto;
+        border: 1px solid var(--line);
+      }
+      #zoom .pane img {
+        display: block;
+        max-width: none;
+      }
+      #zoom .cap {
+        position: sticky;
+        top: 0;
+        left: 0;
+        background: rgba(0, 0, 0, 0.75);
+        padding: 2px 8px;
+        display: inline-block;
+      }
+      ul.exps li {
+        margin: 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="./" id="home">experiments</a>
+      <span class="title" id="title"></span>
+      <button id="prev" title="Previous item (←)">← prev</button>
+      <span id="pos"></span>
+      <button id="next" title="Next item (→)">next →</button>
+      <button id="nextOpen" title="Next item without a verdict (u)">next unjudged</button>
+      <span class="mut" id="itemId"></span>
+      <span class="mut" id="done"></span>
+    </header>
+    <main id="main"></main>
+    <footer id="footer" hidden></footer>
+    <div id="zoom" role="dialog" aria-label="zoomed comparison">
+      <div class="bar">
+        <button id="zclose">close (Esc)</button>
+        <button id="zout">− (-)</button><button id="zin">+ (+)</button><span id="zlevel"></span>
+        <span class="mut">Both panes scroll and zoom together.</span>
+      </div>
+      <div class="panes">
+        <div class="pane" id="za"></div>
+        <div class="pane" id="zb"></div>
+      </div>
+    </div>
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"']/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+        );
+      const exp = new URLSearchParams(location.search).get("exp");
+      // Every request asks for JSON so an auth proxy in front answers 401 instead of redirecting to its login page.
+      const get = (p) =>
+        fetch(p, { headers: { Accept: "application/json" } }).then((r) => {
+          if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`);
+          return r.json();
+        });
+      let M,
+        latest = {},
+        i = 0,
+        cur = {},
+        zoomLevel = 1;
+      const fileUrl = (p) =>
+        `files/${encodeURIComponent(exp)}/${p.split("/").map(encodeURIComponent).join("/")}`;
+
+      async function listExperiments() {
+        $("#title").textContent = "experiments";
+        ["#prev", "#next", "#nextOpen"].forEach((s) => ($(s).hidden = true));
+        const xs = await get("api/experiments");
+        $("#main").innerHTML = xs.length
+          ? `<ul class="exps">${xs.map((x) => `<li><a href="?exp=${encodeURIComponent(x.name)}">${esc(x.title)}</a> <span class="mut">${esc(x.name)} · ${x.judged}/${x.items} judged</span></li>`).join("")}</ul>`
+          : `<p class="mut">No experiments yet. Upload one with <code>image-review push &lt;dir&gt; --name &lt;name&gt;</code>.</p>`;
+      }
+
+      function choiceOptions(q) {
+        return q.options === "rows" ? M.rows : q.options === "cols" ? M.cols : q.options;
+      }
+
+      // Digit keys go to the first choice question; other questions are answered by clicking or typing.
+      const keyedChoice = () => M.questions.find((q) => q.type === "choice");
+
+      function buildFooter() {
+        const f = $("#footer");
+        const kq = keyedChoice();
+        f.innerHTML =
+          M.questions
+            .map((q) => {
+              if (q.type === "choice")
+                return `<div class="q"><span class="label">${esc(q.label)}</span>${choiceOptions(q)
+                  .map(
+                    (o, n) =>
+                      `<button data-q="${esc(q.key)}" data-v="${esc(o.key)}">${q === kq && n < 9 ? `${n + 1} ` : ""}${esc(o.label)}</button>`,
+                  )
+                  .join("")}</div>`;
+              if (q.type === "number") {
+                let b = "";
+                for (let n = q.min; n <= q.max; n++)
+                  b += `<button data-q="${esc(q.key)}" data-v="${n}" data-num="1">${n}</button>`;
+                return `<div class="q"><span class="label">${esc(q.label)}</span>${b}</div>`;
+              }
+              return `<div class="q"><span class="label">${esc(q.label)}</span><textarea data-text="${esc(q.key)}" maxlength="2000"></textarea></div>`;
+            })
+            .join("") +
+          `<div class="q"><button id="save">save and next (Enter)</button><span class="st" id="st"></span>
+    <span class="mut"><kbd>←</kbd><kbd>→</kbd> items · <kbd>u</kbd> next unjudged · ${kq ? `<kbd>1</kbd>-<kbd>9</kbd> ${esc(kq.label)} · ` : ""}<kbd>n</kbd> notes · click an image to zoom</span></div>`;
+        f.hidden = false;
+        f.querySelectorAll("[data-q]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              const v = b.dataset.num ? Number(b.dataset.v) : b.dataset.v;
+              cur[b.dataset.q] = cur[b.dataset.q] === v ? null : v;
+              paint();
+            }),
+        );
+        f.querySelectorAll("[data-text]").forEach(
+          (t) => (t.oninput = () => (cur[t.dataset.text] = t.value || null)),
+        );
+        $("#save").onclick = save;
+      }
+
+      function paint() {
+        document.querySelectorAll("[data-q]").forEach((b) => {
+          const v = b.dataset.num ? Number(b.dataset.v) : b.dataset.v;
+          b.classList.toggle("on", cur[b.dataset.q] === v);
+        });
+        document
+          .querySelectorAll("[data-text]")
+          .forEach((t) => (t.value = cur[t.dataset.text] ?? ""));
+        const rowQ = M.questions.find((q) => q.type === "choice" && q.options === "rows");
+        document
+          .querySelectorAll("tr[data-row]")
+          .forEach((tr) =>
+            tr.classList.toggle("picked", !!rowQ && cur[rowQ.key] === tr.dataset.row),
+          );
+      }
+
+      // Size cells so every row fits between the header and the answer bar; comparing rows needs them on one screen.
+      function fitCells() {
+        const used =
+          $("header").offsetHeight +
+          $("#footer").offsetHeight +
+          ($(".guide")?.offsetHeight ?? 0) +
+          60;
+        const cell = Math.max(80, (window.innerHeight - used) / M.rows.length - 6);
+        $("#main").style.setProperty("--cell", `${Math.floor(cell)}px`);
+      }
+      window.addEventListener("resize", () => M && fitCells());
+
+      function showItem() {
+        const it = M.items[i];
+        const metric = (r) =>
+          Object.entries(it.metrics?.[r] ?? {})
+            .map(([k, v]) => `<span class="metric">${esc(k)} ${esc(v)}</span>`)
+            .join("");
+        const img = (p, cap) =>
+          p
+            ? `<img src="${fileUrl(p)}" alt="${esc(cap)}" data-zoom="${esc(p)}" data-cap="${esc(cap)}" loading="lazy">`
+            : `<div class="blank"></div>`;
+        $("#main").innerHTML = `${M.guide ? `<div class="guide">${esc(M.guide)}</div>` : ""}
+    <div class="layout">
+      ${it.ref ? `<div class="ref"><div class="cap">${esc(M.refLabel ?? "reference")}</div>${img(it.ref, M.refLabel ?? "reference")}</div>` : ""}
+      <table class="grid"><thead><tr><th class="row"></th>${M.cols.map((c) => `<th>${esc(c.label)}</th>`).join("")}</tr></thead>
+      <tbody>${M.rows.map((r) => `<tr data-row="${esc(r.key)}"><th class="row">${esc(r.label)}${metric(r.key)}</th>${M.cols.map((c) => `<td>${img(it.cells[r.key]?.[c.key], `${r.label} / ${c.label}`)}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    </div>`;
+        $("#main")
+          .querySelectorAll("[data-zoom]")
+          .forEach((el) => (el.onclick = () => openZoom(el.dataset.zoom, el.dataset.cap)));
+        fitCells();
+        $("#pos").textContent = `${i + 1} / ${M.items.length}`;
+        $("#itemId").textContent = it.id;
+        $("#done").textContent = `${Object.keys(latest).length} judged`;
+        cur = { ...(latest[it.id]?.answers ?? {}) };
+        $("#st").textContent = latest[it.id]
+          ? `saved ${latest[it.id].at.slice(0, 16).replace("T", " ")} UTC by ${latest[it.id].by}`
+          : "";
+        $("#st").className = "st ok";
+        paint();
+        history.replaceState(
+          null,
+          "",
+          `?exp=${encodeURIComponent(exp)}&item=${encodeURIComponent(it.id)}`,
+        );
+        window.scrollTo(0, 0);
+      }
+
+      async function save() {
+        const it = M.items[i];
+        const answers = {};
+        for (const q of M.questions) answers[q.key] = cur[q.key] ?? null;
+        const res = await fetch(`api/experiments/${encodeURIComponent(exp)}/verdicts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ item: it.id, answers }),
+        });
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          $("#st").textContent =
+            `save failed: HTTP ${res.status} ${e.error ?? ""} ${(e.details ?? []).join("; ")}`;
+          $("#st").className = "st err";
+          return;
+        }
+        latest[it.id] = await res.json();
+        if (i < M.items.length - 1) i++;
+        showItem();
+      }
+
+      function go(n) {
+        if (n >= 0 && n < M.items.length) {
+          i = n;
+          showItem();
+        }
+      }
+      function nextUnjudged() {
+        for (let k = 1; k <= M.items.length; k++) {
+          const n = (i + k) % M.items.length;
+          if (!latest[M.items[n].id]) return go(n);
+        }
+      }
+
+      function openZoom(path, cap) {
+        const it = M.items[i];
+        const pane = (p, c) =>
+          `<span class="cap">${esc(c)}</span><img src="${fileUrl(p)}" alt="${esc(c)}">`;
+        $("#za").innerHTML = it.ref ? pane(it.ref, M.refLabel ?? "reference") : "";
+        $("#zb").innerHTML = pane(path, cap);
+        $("#za").hidden = !it.ref;
+        zoomLevel = 1;
+        applyZoom();
+        $("#zoom").classList.add("open");
+      }
+      function applyZoom() {
+        // Width rather than a CSS transform, so the scroll area grows with the zoom and both panes stay aligned.
+        document.querySelectorAll("#zoom .pane img").forEach((im) => {
+          const fit = () => (im.style.width = `${im.naturalWidth * zoomLevel}px`);
+          im.complete ? fit() : (im.onload = fit);
+        });
+        $("#zlevel").textContent = `${Math.round(zoomLevel * 100)}%`;
+      }
+      const closeZoom = () => $("#zoom").classList.remove("open");
+      let syncing = false;
+      ["#za", "#zb"].forEach((s, k) =>
+        $(s).addEventListener("scroll", () => {
+          if (syncing) return;
+          syncing = true;
+          const o = $(k ? "#za" : "#zb");
+          o.scrollLeft = $(s).scrollLeft;
+          o.scrollTop = $(s).scrollTop;
+          requestAnimationFrame(() => (syncing = false));
+        }),
+      );
+      $("#zclose").onclick = closeZoom;
+      $("#zin").onclick = () => {
+        zoomLevel = Math.min(8, zoomLevel * 1.5);
+        applyZoom();
+      };
+      $("#zout").onclick = () => {
+        zoomLevel = Math.max(0.25, zoomLevel / 1.5);
+        applyZoom();
+      };
+
+      document.addEventListener("keydown", (e) => {
+        if ($("#zoom").classList.contains("open")) {
+          if (e.key === "Escape") closeZoom();
+          else if (e.key === "+" || e.key === "=") $("#zin").click();
+          else if (e.key === "-") $("#zout").click();
+          return;
+        }
+        if (!M) return;
+        if (e.target.tagName === "TEXTAREA") {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            save();
+          } else if (e.key === "Escape") e.target.blur();
+          return;
+        }
+        const kq = keyedChoice();
+        if (e.key === "ArrowLeft") go(i - 1);
+        else if (e.key === "ArrowRight") go(i + 1);
+        else if (e.key === "u") nextUnjudged();
+        else if (e.key === "n") {
+          const t = document.querySelector("[data-text]");
+          if (t) {
+            e.preventDefault();
+            t.focus();
+          }
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          save();
+        } else if (kq && /^[1-9]$/.test(e.key)) {
+          const o = choiceOptions(kq)[Number(e.key) - 1];
+          if (o) {
+            cur[kq.key] = cur[kq.key] === o.key ? null : o.key;
+            paint();
+          }
+        }
+      });
+      $("#prev").onclick = () => go(i - 1);
+      $("#next").onclick = () => go(i + 1);
+      $("#nextOpen").onclick = nextUnjudged;
+
+      (async () => {
+        try {
+          if (!exp) return await listExperiments();
+          const d = await get(`api/experiments/${encodeURIComponent(exp)}`);
+          M = d.manifest;
+          latest = d.latest;
+          $("#title").textContent = M.title;
+          buildFooter();
+          const want = new URLSearchParams(location.search).get("item");
+          const at = M.items.findIndex((it) => it.id === want);
+          const open = M.items.findIndex((it) => !latest[it.id]);
+          i = at >= 0 ? at : open >= 0 ? open : 0;
+          showItem();
+        } catch (err) {
+          $("#main").innerHTML = `<p class="st err">${esc(err.message)}</p>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,166 @@
+{
+  "title": "Demo: three models x three seeds",
+  "guide": "The left image is the reference. Each row is one model, each column one seed.\nPick the row closest to the reference and count the usable images.",
+  "refLabel": "reference",
+  "rows": [
+    {
+      "key": "m0",
+      "label": "Model 0"
+    },
+    {
+      "key": "m1",
+      "label": "Model 1"
+    },
+    {
+      "key": "m2",
+      "label": "Model 2"
+    }
+  ],
+  "cols": [
+    {
+      "key": "s1",
+      "label": "seed 1"
+    },
+    {
+      "key": "s2",
+      "label": "seed 2"
+    },
+    {
+      "key": "s3",
+      "label": "seed 3"
+    }
+  ],
+  "questions": [
+    {
+      "key": "closest",
+      "label": "Closest row",
+      "type": "choice",
+      "options": "rows"
+    },
+    {
+      "key": "usable",
+      "label": "Usable images (of 9)",
+      "type": "number",
+      "min": 0,
+      "max": 9
+    },
+    {
+      "key": "verdict",
+      "label": "Overall",
+      "type": "choice",
+      "options": [
+        {
+          "key": "good",
+          "label": "good"
+        },
+        {
+          "key": "bad",
+          "label": "bad"
+        }
+      ]
+    },
+    {
+      "key": "note",
+      "label": "Notes",
+      "type": "text"
+    }
+  ],
+  "items": [
+    {
+      "id": "cat",
+      "ref": "cat/ref.jpg",
+      "cells": {
+        "m0": {
+          "s1": "cat/m0_s1.jpg",
+          "s2": "cat/m0_s2.jpg",
+          "s3": "cat/m0_s3.jpg"
+        },
+        "m1": {
+          "s1": "cat/m1_s1.jpg",
+          "s2": "cat/m1_s2.jpg",
+          "s3": "cat/m1_s3.jpg"
+        },
+        "m2": {
+          "s1": "cat/m2_s1.jpg",
+          "s2": "cat/m2_s2.jpg",
+          "s3": "cat/m2_s3.jpg"
+        }
+      },
+      "metrics": {
+        "m0": {
+          "sim": 0.43
+        },
+        "m1": {
+          "sim": 0.53
+        },
+        "m2": {
+          "sim": 0.63
+        }
+      }
+    },
+    {
+      "id": "dog",
+      "ref": "dog/ref.jpg",
+      "cells": {
+        "m0": {
+          "s1": "dog/m0_s1.jpg",
+          "s2": "dog/m0_s2.jpg",
+          "s3": "dog/m0_s3.jpg"
+        },
+        "m1": {
+          "s1": "dog/m1_s1.jpg",
+          "s2": "dog/m1_s2.jpg",
+          "s3": "dog/m1_s3.jpg"
+        },
+        "m2": {
+          "s1": "dog/m2_s1.jpg",
+          "s2": "dog/m2_s2.jpg",
+          "s3": "dog/m2_s3.jpg"
+        }
+      },
+      "metrics": {
+        "m0": {
+          "sim": 0.43
+        },
+        "m1": {
+          "sim": 0.53
+        },
+        "m2": {
+          "sim": 0.63
+        }
+      }
+    },
+    {
+      "id": "fox",
+      "ref": "fox/ref.jpg",
+      "cells": {
+        "m0": {
+          "s1": "fox/m0_s1.jpg",
+          "s2": "fox/m0_s2.jpg",
+          "s3": "fox/m0_s3.jpg"
+        },
+        "m1": {
+          "s1": "fox/m1_s1.jpg",
+          "s2": "fox/m1_s2.jpg",
+          "s3": "fox/m1_s3.jpg"
+        },
+        "m2": {
+          "s1": "fox/m2_s1.jpg",
+          "s2": "fox/m2_s2.jpg",
+          "s3": "fox/m2_s3.jpg"
+        }
+      },
+      "metrics": {
+        "m0": {
+          "sim": 0.43
+        },
+        "m1": {
+          "sim": 0.53
+        },
+        "m2": {
+          "sim": 0.63
+        }
+      }
+    }
+  ]
+}
