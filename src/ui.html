@@ -396,6 +396,8 @@
         $("#itemId").textContent = it.id;
         $("#done").textContent = `${Object.keys(latest).length} judged`;
         cur = { ...(latest[it.id]?.answers ?? {}) };
+        // A half-typed number belongs to the item it was typed on; clear it before showing this one.
+        document.querySelectorAll("[data-numin]").forEach((t) => (t.value = ""));
         $("#st").textContent = latest[it.id]
           ? `saved ${latest[it.id].at.slice(0, 16).replace("T", " ")} UTC by ${latest[it.id].by}`
           : "";
@@ -413,8 +415,7 @@
       async function save() {
         // One save at a time; a second Enter while the first is in flight would post again and skip an item.
         if (saving) {
-          $("#st").textContent =
-            "still saving the previous answer; press Enter again when it is done";
+          $("#st").textContent = "still saving the previous answer; this Enter was ignored";
           $("#st").className = "st err";
           return;
         }
@@ -462,6 +463,8 @@
         // If the reviewer moved on while this was in flight, leave their current answers alone.
         if (M.items[i] !== it) {
           $("#done").textContent = `${Object.keys(latest).length} judged`;
+          $("#st").textContent = `saved ${it.id}`;
+          $("#st").className = "st ok";
           return;
         }
         if (i < M.items.length - 1) i++;

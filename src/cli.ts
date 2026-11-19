@@ -44,6 +44,10 @@ async function loadLocal(dir: string): Promise<Manifest> {
   const root = (await realpath(dir)) + sep;
   for (const p of imagePaths(m as Manifest)) {
     const real = await realpath(join(dir, p)).catch(() => undefined);
+    if (real !== undefined && !real.startsWith(root)) {
+      outside.push(`${p} -> ${real}`);
+      continue;
+    }
     const ok =
       real !== undefined &&
       (await stat(real).then(
@@ -51,7 +55,6 @@ async function loadLocal(dir: string): Promise<Manifest> {
         () => false,
       ));
     if (!ok) missing.push(p);
-    else if (!real.startsWith(root)) outside.push(`${p} -> ${real}`);
   }
   if (missing.length) die("images named in the manifest are missing", missing);
   if (outside.length) die("images resolve outside the manifest directory (symlinks)", outside);

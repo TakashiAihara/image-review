@@ -92,7 +92,7 @@ Verdicts are append-only, so earlier answers are never lost.
 
 ## API
 
-All endpoints require the token. Request bodies sent to `POST .../verdicts` and `PUT .../manifest` must have `Content-Type: application/json` (a cross-site form cannot send that, so a logged-in reviewer's session cannot be used to forge verdicts).
+All endpoints require the token. Request bodies sent to `POST .../verdicts` and `PUT .../manifest` must have `Content-Type: application/json` (a cross-site form can only POST text/plain, urlencoded or multipart, so it cannot use a logged-in reviewer's session to forge verdicts; the manifest PUT requires it for consistency).
 
 | Method and path                           | Purpose                                                       |
 | ----------------------------------------- | ------------------------------------------------------------- |

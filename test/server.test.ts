@@ -187,7 +187,7 @@ describe("forgery", () => {
     expect(ok.status).toBe(200);
   });
 
-  test("records only X-Forwarded-Email as the reviewer", async () => {
+  test("ignores X-Auth-Request-Email when recording the reviewer", async () => {
     await pushAll();
     const v = await req(
       "POST",

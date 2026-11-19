@@ -49,7 +49,7 @@ async function exists(p: string): Promise<boolean> {
   );
 }
 
-// A cross-site form can only send text/plain, urlencoded or multipart; requiring JSON keeps it from posting through the proxy's session.
+// A cross-site form can only POST text/plain, urlencoded or multipart; requiring JSON keeps it from posting verdicts through the proxy's session.
 function isJson(req: Request): boolean {
   return (
     (req.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ===

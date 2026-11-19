@@ -68,9 +68,16 @@ export function isSafeRelPath(p: unknown): p is string {
   return p.split("/").every((seg) => seg !== "" && seg !== "." && seg !== "..");
 }
 
-// Keys and ids become property names on plain objects (verdict maps, answers), where "__proto__" would set the prototype instead.
+// Keys and ids become property names on plain objects (verdict maps, answers). Built-in names would
+// collide: "__proto__" sets the prototype, and "toString" etc. read as present before anything is saved.
 function isKey(v: unknown): v is string {
-  return typeof v === "string" && v !== "" && v !== "__proto__";
+  return typeof v === "string" && v !== "" && !(v in Object.prototype);
+}
+
+function keyProblem(v: unknown): string {
+  return typeof v === "string" && v !== ""
+    ? `"${v}" is a built-in name`
+    : "needs a non-empty string";
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -85,8 +92,10 @@ function axes(v: unknown, where: string, errs: string[]): Axis[] {
   const seen = new Set<string>();
   const ok: Axis[] = [];
   for (const [i, a] of v.entries()) {
-    if (!isObj(a) || !isKey(a.key) || typeof a.label !== "string") {
+    if (!isObj(a) || typeof a.label !== "string") {
       errs.push(`${where}[${i}]: needs string key and label`);
+    } else if (!isKey(a.key)) {
+      errs.push(`${where}[${i}].key: ${keyProblem(a.key)}`);
     } else if (seen.has(a.key)) {
       errs.push(`${where}[${i}]: duplicate key "${a.key}"`);
     } else {
@@ -113,8 +122,12 @@ export function validateManifest(m: unknown): string[] {
     const seen = new Set<string>();
     for (const [i, q] of m.questions.entries()) {
       const at = `questions[${i}]`;
-      if (!isObj(q) || !isKey(q.key) || typeof q.label !== "string") {
+      if (!isObj(q) || typeof q.label !== "string") {
         errs.push(`${at}: needs string key and label`);
+        continue;
+      }
+      if (!isKey(q.key)) {
+        errs.push(`${at}.key: ${keyProblem(q.key)}`);
         continue;
       }
       if (seen.has(q.key)) errs.push(`${at}: duplicate key "${q.key}"`);
@@ -138,8 +151,12 @@ export function validateManifest(m: unknown): string[] {
     const seen = new Set<string>();
     for (const [i, it] of m.items.entries()) {
       const at = `items[${i}]`;
-      if (!isObj(it) || !isKey(it.id)) {
+      if (!isObj(it)) {
         errs.push(`${at}: needs string id`);
+        continue;
+      }
+      if (!isKey(it.id)) {
+        errs.push(`${at}.id: ${keyProblem(it.id)}`);
         continue;
       }
       if (seen.has(it.id)) errs.push(`${at}: duplicate id "${it.id}"`);

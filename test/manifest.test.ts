@@ -43,17 +43,17 @@ test("names each problem in an invalid manifest", () => {
   ]);
 });
 
-test("__proto__ is refused as a key or id", () => {
+test("built-in object names are refused as keys and ids", () => {
   const m = {
     ...base,
     rows: [{ key: "__proto__", label: "P" }],
-    questions: [{ key: "__proto__", label: "Q", type: "text" }],
-    items: [{ id: "__proto__", cells: {} }],
+    questions: [{ key: "toString", label: "Q", type: "text" }],
+    items: [{ id: "constructor", cells: {} }],
   };
   expect(validateManifest(m)).toEqual([
-    "rows[0]: needs string key and label",
-    "questions[0]: needs string key and label",
-    "items[0]: needs string id",
+    'rows[0].key: "__proto__" is a built-in name',
+    'questions[0].key: "toString" is a built-in name',
+    'items[0].id: "constructor" is a built-in name',
   ]);
 });
 
