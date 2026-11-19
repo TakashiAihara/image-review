@@ -532,6 +532,8 @@
       };
 
       document.addEventListener("keydown", (e) => {
+        // Leave browser and OS shortcuts (Ctrl+R, Cmd+1, Alt+←) alone.
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
         if ($("#zoom").classList.contains("open")) {
           if (e.key === "Escape") closeZoom();
           else if (e.key === "+" || e.key === "=") $("#zin").click();
@@ -558,6 +560,8 @@
             t.focus();
           }
         } else if (e.key === "Enter") {
+          // Enter on a focused button or link activates it, as usual, instead of saving.
+          if (e.target.closest("button, a")) return;
           e.preventDefault();
           save();
         } else if (kq && /^[1-9]$/.test(e.key)) {
