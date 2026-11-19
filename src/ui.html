@@ -307,6 +307,9 @@
                       `<button data-q="${esc(q.key)}" data-v="${esc(o.key)}">${q === kq && n < 9 ? `${n + 1} ` : ""}${esc(o.label)}</button>`,
                   )
                   .join("")}</div>`;
+              // Wide ranges get a number field; one button per value would flood the bar.
+              if (q.type === "number" && q.max - q.min > 20)
+                return `<div class="q"><span class="label">${esc(q.label)}</span><input type="number" data-numin="${esc(q.key)}" min="${q.min}" max="${q.max}" step="1"></div>`;
               if (q.type === "number") {
                 let b = "";
                 for (let n = q.min; n <= q.max; n++)
@@ -330,6 +333,10 @@
         f.querySelectorAll("[data-text]").forEach(
           (t) => (t.oninput = () => (cur[t.dataset.text] = t.value || null)),
         );
+        f.querySelectorAll("[data-numin]").forEach(
+          (t) =>
+            (t.oninput = () => (cur[t.dataset.numin] = t.value === "" ? null : Number(t.value))),
+        );
         $("#save").onclick = save;
       }
 
@@ -341,6 +348,9 @@
         document
           .querySelectorAll("[data-text]")
           .forEach((t) => (t.value = cur[t.dataset.text] ?? ""));
+        document
+          .querySelectorAll("[data-numin]")
+          .forEach((t) => (t.value = cur[t.dataset.numin] ?? ""));
         const rowQ = M.questions.find((q) => q.type === "choice" && q.options === "rows");
         document
           .querySelectorAll("tr[data-row]")
@@ -402,11 +412,18 @@
         const it = M.items[i];
         const answers = {};
         for (const q of M.questions) answers[q.key] = cur[q.key] ?? null;
-        const res = await fetch(`api/experiments/${encodeURIComponent(exp)}/verdicts`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ item: it.id, answers }),
-        });
+        let res;
+        try {
+          res = await fetch(`api/experiments/${encodeURIComponent(exp)}/verdicts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ item: it.id, answers }),
+          });
+        } catch (err) {
+          $("#st").textContent = `save failed: ${err.message} (not saved, try again)`;
+          $("#st").className = "st err";
+          return;
+        }
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
           $("#st").textContent =
@@ -436,9 +453,11 @@
         const it = M.items[i];
         const pane = (p, c) =>
           `<span class="cap">${esc(c)}</span><img src="${fileUrl(p)}" alt="${esc(c)}">`;
-        $("#za").innerHTML = it.ref ? pane(it.ref, M.refLabel ?? "reference") : "";
+        // The reference itself opens alone rather than next to a copy of itself.
+        const withRef = it.ref && path !== it.ref;
+        $("#za").innerHTML = withRef ? pane(it.ref, M.refLabel ?? "reference") : "";
         $("#zb").innerHTML = pane(path, cap);
-        $("#za").hidden = !it.ref;
+        $("#za").hidden = !withRef;
         zoomLevel = 1;
         applyZoom();
         $("#zoom").classList.add("open");
@@ -481,7 +500,7 @@
           return;
         }
         if (!M) return;
-        if (e.target.tagName === "TEXTAREA") {
+        if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             save();

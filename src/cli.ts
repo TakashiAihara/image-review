@@ -108,7 +108,10 @@ program
   .description(
     "Upload <dir>/manifest.json and its images as experiment <name> (IMAGE_REVIEW_URL, IMAGE_REVIEW_TOKEN)",
   )
-  .requiredOption("--name <name>", "experiment name ([A-Za-z0-9._-], up to 64 chars)")
+  .requiredOption(
+    "--name <name>",
+    "experiment name: starts with a letter or digit, then [A-Za-z0-9._-], up to 64 chars",
+  )
   .action(async (dir: string, o: { name: string }) => {
     if (!isExperimentName(o.name)) die(`invalid experiment name: ${o.name}`);
     const m = await loadLocal(dir);

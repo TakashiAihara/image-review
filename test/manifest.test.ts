@@ -27,15 +27,19 @@ test("names each problem in an invalid manifest", () => {
     items: [
       { id: "i", ref: "/etc/passwd", cells: { a: { zz: "ok.png" } } },
       { id: "i", cells: {} },
+      { id: "j", cells: { a: { c: "page.html" } }, metrics: { zz: { sim: 1 }, a: { sim: [1] } } },
     ],
   };
   expect(validateManifest(m)).toEqual([
     'rows[1]: duplicate key "a"',
     "questions[0]: number needs integer min <= max",
     "questions[1]: type must be choice, number or text",
-    "items[0].ref: unsafe or invalid path",
+    "items[0].ref: unsafe path or not an image",
     'items[0].cells.a: unknown col "zz"',
     'items[1]: duplicate id "i"',
+    "items[2].cells.a.c: unsafe path or not an image",
+    'items[2].metrics: unknown row "zz"',
+    "items[2].metrics.a: must map names to numbers or strings",
   ]);
 });
 

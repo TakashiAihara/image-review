@@ -5,7 +5,9 @@ import uiText from "./ui.html" with { type: "text" };
 import {
   type Manifest,
   type Verdict,
+  IMAGE_TYPES,
   imagePaths,
+  imageType,
   isExperimentName,
   isSafeRelPath,
   validateAnswers,
@@ -17,15 +19,6 @@ import {
 // With type "text" Bun yields the file as a string, but its typings declare every .html import as an HTMLBundle.
 const page = uiText as unknown as string;
 
-const IMAGE_TYPES: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-  avif: "image/avif",
-};
-
 export type ServerOptions = { dataDir: string; token: string; host: string; port: number };
 
 function json(body: unknown, status = 200): Response {
@@ -33,10 +26,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function imageType(path: string): string | undefined {
-  return IMAGE_TYPES[path.split(".").pop()?.toLowerCase() ?? ""];
 }
 
 function sameSecret(given: string | null | undefined, token: string): boolean {
@@ -74,7 +63,9 @@ export function createHandler(dataDir: string, token: string) {
     try {
       return JSON.parse(await readFile(join(expDir(name), "manifest.json"), "utf8")) as Manifest;
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      // ENOTDIR: a stray file in the data directory, not an experiment.
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") return undefined;
       throw e;
     }
   }
@@ -82,29 +73,44 @@ export function createHandler(dataDir: string, token: string) {
   async function loadVerdicts(name: string): Promise<Verdict[]> {
     try {
       const text = await readFile(join(expDir(name), "verdicts.jsonl"), "utf8");
+      // A torn line (crash mid-append) stops reads of this experiment with its line number, so it can be fixed by hand.
       return text
         .split("\n")
-        .filter((l) => l !== "")
-        .map((l) => JSON.parse(l) as Verdict);
+        .map((l, n) => ({ l, n }))
+        .filter(({ l }) => l !== "")
+        .map(({ l, n }) => {
+          try {
+            return JSON.parse(l) as Verdict;
+          } catch {
+            throw new Error(`${name}/verdicts.jsonl line ${n + 1} is not valid JSON`);
+          }
+        });
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw e;
     }
   }
 
-  function latest(vs: Verdict[]): Record<string, Verdict> {
+  /** Latest verdict per item still in the manifest; verdicts for items a re-push removed stay in the file but are not current. */
+  function latest(m: Manifest, vs: Verdict[]): Record<string, Verdict> {
+    const ids = new Set(m.items.map((it) => it.id));
     const out: Record<string, Verdict> = {};
-    for (const v of vs) out[v.item] = v;
+    for (const v of vs) if (ids.has(v.item)) out[v.item] = v;
     return out;
   }
 
-  return async function handle(req: Request): Promise<Response> {
+  async function handle(req: Request): Promise<Response> {
     if (!authorized(req, token)) return json({ error: "unauthorized" }, 401);
     const url = new URL(req.url);
-    const parts = url.pathname
-      .split("/")
-      .filter((s) => s !== "")
-      .map(decodeURIComponent);
+    let parts: string[];
+    try {
+      parts = url.pathname
+        .split("/")
+        .filter((s) => s !== "")
+        .map(decodeURIComponent);
+    } catch {
+      return json({ error: "malformed path" }, 400);
+    }
 
     if (url.pathname === "/" && req.method === "GET")
       return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -121,7 +127,8 @@ export function createHandler(dataDir: string, token: string) {
         headers: {
           "Content-Type": type,
           "X-Content-Type-Options": "nosniff",
-          "Cache-Control": "private, max-age=3600",
+          // Re-pushing can replace an image at the same path, so revalidate every time.
+          "Cache-Control": "private, no-cache",
         },
       });
     }
@@ -134,14 +141,19 @@ export function createHandler(dataDir: string, token: string) {
       const out = [];
       for (const d of (await readdir(dataDir)).sort()) {
         if (!isExperimentName(d)) continue;
-        const m = await loadManifest(d);
-        if (!m) continue;
-        out.push({
-          name: d,
-          title: m.title,
-          items: m.items.length,
-          judged: Object.keys(latest(await loadVerdicts(d))).length,
-        });
+        // One broken experiment is reported in its row instead of failing the whole list.
+        try {
+          const m = await loadManifest(d);
+          if (!m) continue;
+          out.push({
+            name: d,
+            title: m.title,
+            items: m.items.length,
+            judged: Object.keys(latest(m, await loadVerdicts(d))).length,
+          });
+        } catch (e) {
+          out.push({ name: d, error: (e as Error).message });
+        }
       }
       return json(out);
     }
@@ -152,7 +164,7 @@ export function createHandler(dataDir: string, token: string) {
     if (sub === undefined && req.method === "GET") {
       const m = await loadManifest(name);
       if (!m) return json({ error: "no such experiment" }, 404);
-      return json({ name, manifest: m, latest: latest(await loadVerdicts(name)) });
+      return json({ name, manifest: m, latest: latest(m, await loadVerdicts(name)) });
     }
 
     if (sub === "files" && req.method === "PUT") {
@@ -177,8 +189,7 @@ export function createHandler(dataDir: string, token: string) {
       if (errs.length) return json({ error: "invalid manifest", details: errs }, 400);
       const missing = [];
       for (const p of imagePaths(m as Manifest)) {
-        if (!imageType(p)) missing.push(`${p} (not an image extension)`);
-        else if (!(await exists(join(expDir(name), "files", p)))) missing.push(p);
+        if (!(await exists(join(expDir(name), "files", p)))) missing.push(p);
       }
       if (missing.length) return json({ error: "images not uploaded", details: missing }, 400);
       await writeAtomic(join(expDir(name), "manifest.json"), JSON.stringify(m, null, 2));
@@ -216,6 +227,15 @@ export function createHandler(dataDir: string, token: string) {
     }
 
     return json({ error: "not found" }, 404);
+  }
+
+  return async (req: Request): Promise<Response> => {
+    try {
+      return await handle(req);
+    } catch (e) {
+      console.error(e);
+      return json({ error: (e as Error).message }, 500);
+    }
   };
 }
 

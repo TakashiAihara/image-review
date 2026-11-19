@@ -6,13 +6,13 @@ Each experiment brings its own layout and questions in a `manifest.json`: what g
 
 ## Screen
 
-- One page per item: the reference image on the left, the rows x columns grid on the right, sized so every row fits on one screen. Per-row metrics from the manifest sit next to the row label
-- Click any image to see it next to the reference at native size; both panes scroll and zoom together
-- Keys: `←` `→` items, `u` next item without a verdict, `1`-`9` the first choice question, `n` focus the text field, `Enter` save and go to the next item, `Esc` close the zoom. Every key has a button too
+- One page per item: the reference image on the left, the rows x columns grid on the right. Cells shrink so every row fits on one screen, down to 80px; beyond about eight rows the page scrolls. Per-row metrics from the manifest sit next to the row label
+- Click a generated image to see it next to the reference at native size; both panes scroll and zoom together. Clicking the reference shows it alone
+- Keys: `←` `→` items, `u` next item without a verdict, `1`-`9` the first choice question, `n` focus the text field, `Enter` save and go to the next item, `Esc` close the zoom. Every key action is also a button or a field you can click
 
 ## Install
 
-Requires [Bun](https://bun.sh) (the version is pinned in `.mise.toml`).
+Requires [Bun](https://bun.sh). The version is pinned in `.mise.toml`; with [mise](https://mise.jdx.dev), `mise install` gets it.
 
 ```bash
 git clone https://github.com/TakashiAihara/image-review
@@ -32,7 +32,7 @@ export IMAGE_REVIEW_TOKEN="$(head -c 24 /dev/urandom | base64)"
 dist/image-review serve --data ./data --host 127.0.0.1 --port 8080
 ```
 
-Browsers do not send that header on their own. Put an authenticating reverse proxy in front (for example oauth2-proxy with an OIDC provider) and have it inject `X-Image-Review-Token` after login; optionally also `X-Forwarded-Email`, which is recorded as the reviewer. Agents talk to the server directly with the bearer token.
+Browsers do not send that header on their own. Put an authenticating reverse proxy in front (for example oauth2-proxy with an OIDC provider) and have it inject `X-Image-Review-Token` after login. If the proxy also sets `X-Forwarded-Email`, it is recorded as the reviewer; the server takes that header as given, so the proxy must overwrite any value the client sent. Agents talk to the server directly with the bearer token and are recorded as `api` unless they set the header.
 
 ## Upload an experiment and read verdicts
 
@@ -46,7 +46,7 @@ dist/image-review verdicts demo          # latest verdict per item
 dist/image-review verdicts demo --all    # every save, in order
 ```
 
-`push` uploads every image the manifest names, then the manifest; the server rejects a manifest whose images are not all present. Pushing again under the same name replaces the manifest and keeps the verdicts.
+`push` uploads every image the manifest names, then the manifest; the server rejects a manifest whose images are not all present. Each upload may be up to 64 MB. Pushing again under the same name replaces the manifest and keeps the verdicts file; verdicts for items the new manifest no longer has stay in the file but are no longer reported as current.
 
 Exit codes: 0 ok, 1 the operation failed (invalid manifest, missing images, server error), 2 `IMAGE_REVIEW_URL` / `IMAGE_REVIEW_TOKEN` not set.
 
@@ -68,13 +68,13 @@ See `examples/demo/manifest.json` for a complete one.
 
 Image paths are relative to the directory holding `manifest.json`, must stay inside it, and end in `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` or `.avif`.
 
-Question types:
+Every question needs a unique `key` and a `label`. Types:
 
-| `type`   | Extra fields                                            | Answer                |
-| -------- | ------------------------------------------------------- | --------------------- |
-| `choice` | `options`: `"rows"`, `"cols"` or `[{ "key", "label" }]` | one option key        |
-| `number` | `min`, `max` (integers)                                 | an integer in range   |
-| `text`   | none                                                    | up to 2000 characters |
+| `type`   | Extra fields                                            | Answer                                                               |
+| -------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| `choice` | `options`: `"rows"`, `"cols"` or `[{ "key", "label" }]` | one option key                                                       |
+| `number` | `min`, `max` (integers)                                 | an integer in range (buttons up to 21 values, a number field beyond) |
+| `text`   | none                                                    | up to 2000 characters                                                |
 
 Any question may be left unanswered (`null`).
 

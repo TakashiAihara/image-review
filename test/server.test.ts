@@ -126,6 +126,7 @@ describe("upload", () => {
     expect(img.status).toBe(200);
     expect(img.headers.get("content-type")).toBe("image/png");
     expect(img.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(img.headers.get("cache-control")).toBe("private, no-cache");
     expect(await img.text()).toBe("img:x1/b1.png");
     expect((await req("GET", "/files/e1/..%2Fmanifest.json")).status).toBe(404);
     expect((await req("GET", "/files/e1/x1/missing.png")).status).toBe(404);
@@ -146,6 +147,65 @@ describe("upload", () => {
         (x) => x.name,
       ),
     ).toEqual(["e1"]);
+  });
+});
+
+describe("resilience", () => {
+  test("a broken experiment is reported in its row and does not hide the others", async () => {
+    await pushAll();
+    await mkdir(join(dir, "e0"), { recursive: true });
+    await writeFile(join(dir, "e0", "manifest.json"), "{not json");
+    await writeFile(join(dir, "stray.txt"), "a file, not an experiment");
+    const list = (await (await req("GET", "/api/experiments")).json()) as {
+      name: string;
+      error?: string;
+    }[];
+    expect(list.map((x) => x.name)).toEqual(["e0", "e1"]);
+    expect(list[0]?.error).toContain("JSON");
+    expect(list[1]?.error).toBeUndefined();
+  });
+
+  test("a torn verdict line fails that experiment with the line number", async () => {
+    await pushAll();
+    await writeFile(
+      join(dir, "e1", "verdicts.jsonl"),
+      '{"item":"x1","answers":{},"by":"api","at":"t"}\n{"item":"x2","ans\n',
+    );
+    const res = await req("GET", "/api/experiments/e1");
+    expect(res.status).toBe(500);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "e1/verdicts.jsonl line 2 is not valid JSON",
+    );
+  });
+
+  test("a malformed percent-escape is a 400, not a crash", async () => {
+    expect((await req("GET", "/files/e1/%ZZ.png")).status).toBe(400);
+  });
+
+  test("verdicts for items a re-push removed are kept but not current", async () => {
+    await pushAll();
+    const post = (item: string) =>
+      req(
+        "POST",
+        "/api/experiments/e1/verdicts",
+        JSON.stringify({ item, answers: { closest: "a" } }),
+      );
+    expect((await post("x1")).status).toBe(200);
+    expect((await post("x2")).status).toBe(200);
+    const only = { ...manifest, items: manifest.items.filter((it) => it.id === "x1") };
+    expect((await req("PUT", "/api/experiments/e1/manifest", JSON.stringify(only))).status).toBe(
+      200,
+    );
+    const d = (await (await req("GET", "/api/experiments/e1")).json()) as {
+      latest: Record<string, unknown>;
+    };
+    expect(Object.keys(d.latest)).toEqual(["x1"]);
+    expect(await (await req("GET", "/api/experiments")).json()).toEqual([
+      { name: "e1", title: "demo", items: 1, judged: 1 },
+    ]);
+    expect(
+      ((await (await req("GET", "/api/experiments/e1/verdicts")).json()) as unknown[]).length,
+    ).toBe(2);
   });
 });
 

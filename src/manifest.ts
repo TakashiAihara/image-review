@@ -39,6 +39,24 @@ export function isExperimentName(s: string): boolean {
   return NAME.test(s);
 }
 
+export const IMAGE_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+};
+
+/** Content type for an image path, or undefined when the extension is not an allowed image. */
+export function imageType(path: string): string | undefined {
+  return IMAGE_TYPES[path.split(".").pop()?.toLowerCase() ?? ""];
+}
+
+export function isImagePath(p: unknown): p is string {
+  return isSafeRelPath(p) && imageType(p) !== undefined;
+}
+
 /** Rejects absolute paths, `..` segments, backslashes and empty segments so a path can never leave the experiment directory. */
 export function isSafeRelPath(p: unknown): p is string {
   if (typeof p !== "string" || p.length === 0 || p.length > 512) return false;
@@ -113,8 +131,8 @@ export function validateManifest(m: unknown): string[] {
       }
       if (seen.has(it.id)) errs.push(`${at}: duplicate id "${it.id}"`);
       seen.add(it.id);
-      if (it.ref !== undefined && !isSafeRelPath(it.ref))
-        errs.push(`${at}.ref: unsafe or invalid path`);
+      if (it.ref !== undefined && !isImagePath(it.ref))
+        errs.push(`${at}.ref: unsafe path or not an image`);
       if (!isObj(it.cells)) {
         errs.push(`${at}.cells: must be an object`);
         continue;
@@ -127,11 +145,21 @@ export function validateManifest(m: unknown): string[] {
         }
         for (const [c, p] of Object.entries(byCol)) {
           if (!cols.has(c)) errs.push(`${at}.cells.${r}: unknown col "${c}"`);
-          if (!isSafeRelPath(p)) errs.push(`${at}.cells.${r}.${c}: unsafe or invalid path`);
+          if (!isImagePath(p)) errs.push(`${at}.cells.${r}.${c}: unsafe path or not an image`);
         }
       }
-      if (it.metrics !== undefined && !isObj(it.metrics))
-        errs.push(`${at}.metrics: must be an object`);
+      if (it.metrics !== undefined) {
+        if (!isObj(it.metrics)) errs.push(`${at}.metrics: must be an object`);
+        else
+          for (const [r, vals] of Object.entries(it.metrics)) {
+            if (!rows.has(r)) errs.push(`${at}.metrics: unknown row "${r}"`);
+            else if (
+              !isObj(vals) ||
+              !Object.values(vals).every((v) => typeof v === "number" || typeof v === "string")
+            )
+              errs.push(`${at}.metrics.${r}: must map names to numbers or strings`);
+          }
+      }
     }
   }
   return errs;
