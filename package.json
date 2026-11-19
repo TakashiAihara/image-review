@@ -1,0 +1,29 @@
+{
+  "name": "image-review",
+  "version": "0.1.0",
+  "description": "Side-by-side review of generated images: per-experiment layout and judgment questions defined by a manifest",
+  "license": "MIT",
+  "bin": {
+    "image-review": "./src/cli.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "build": "bun build --compile --minify src/cli.ts --outfile dist/image-review",
+    "install-bin": "BIN=\"${IMAGE_REVIEW_BIN_DIR:-$HOME/.local/bin}\"; mkdir -p \"$BIN\" && chmod +x src/cli.ts && ln -sfn \"$PWD/src/cli.ts\" \"$BIN/image-review\" && echo \"installed: $BIN/image-review -> $PWD/src/cli.ts\"",
+    "typecheck": "tsgo --noEmit",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "@typescript/native-preview": "^7.0.0-dev.20260427.1",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0"
+  }
+}
